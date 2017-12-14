@@ -1,8 +1,8 @@
 import tensorflow as tf
 batch_size = 1
 with tf.name_scope('inputs') as scope:
-    receptor = tf.placeholder(tf.float32,[batch_size,96,96,96,3],name='receptor') #10 by 10 by 10 angstrom box
-    ligand = tf.placeholder(tf.float32,[batch_size,96,96,96,3],name='ligand')
+    receptor = tf.placeholder(tf.float32,[batch_size,96,96,96,5],name='receptor') #10 by 10 by 10 angstrom box
+    ligand = tf.placeholder(tf.float32,[batch_size,96,96,96],name='ligand') #present absent (is a binding site or not)
     
 with tf.name_scope('embedding') as scope:
 #    atom_embeddings = tf.get_variable('atom_embeddings',[5, 3])
@@ -27,17 +27,29 @@ with tf.name_scope('layers') as scope:
     layer1a_t = tf.layers.conv3d_transpose(layer1b_t,16,(3,3,3),(2,2,2),padding='same')
     layer0_t = tf.layers.conv3d(tf.concat([layer1a_t,layer1a],-1),16,(3,3,3),padding='same',activation=tf.nn.relu)
 
-with tf.name_scope('atom_site') as scope:
-    atom_present = tf.add(tf.add(ligand[:,:,:,:,0],ligand[:,:,:,:,1]),ligand[:,:,:,:,2])
-    prob_atom = tf.layers.conv3d(layer0_t,1,(3,3,3),padding='same',activation=None)
-    prob_atom_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=prob_atom[:,:,:,:,-1],labels=atom_present)
-    predict_atom = tf.nn.sigmoid(prob_atom)
+with tf.name_scope('atom_site') as scope: #predict if it is a binding site
+    prob_lig = tf.layers.conv3d(layer0_t,1,(3,3,3),padding='same',activation=None)
+    prob_lig_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=prob_lig[:,:,:,:,0],labels=ligand)
+    predict_atom = tf.nn.sigmoid(prob_lig)
+
+
+init = tf.global_variables_initializer();sess = tf.Session();sess.run(init)
+die
 with tf.name_scope('atom_site_classification') as scope:
     predict = tf.layers.conv3d(layer0_t,3,(3,3,3),padding='same',activation=None)
     log_loss = tf.multiply(tf.nn.softmax_cross_entropy_with_logits(logits=predict,labels=ligand,dim=-1),atom_present)
     out = tf.multiply(tf.nn.softmax(predict),predict_atom)
     loss = tf.reduce_mean(tf.add(prob_atom_loss,log_loss))
-    
+# Initializing the variables
+
+import matplotlib.pyplot as plt
+import numpy as np
+x= plt.imread('5di4_a.png')[400:410,420:430,1:]
+s = x.shape
+y=tf.Variable(x,dtype =tf.float32)
+z= tf.contrib.image.rotate(y,(3.142))
+
+die
 total_parameters = 0
 print ''' ### PARAMETERS ### '''
 for variable in tf.trainable_variables():
